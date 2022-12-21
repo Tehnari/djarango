@@ -27,3 +27,4 @@ services:
     #entrypoint: sleep infinity
     depends_on:
       - arangodb
+      - postgis

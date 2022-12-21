@@ -14,16 +14,16 @@
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": "postgis1",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "postgres1",
         "USER": "user",
         "PASSWORD": "password",
         "HOST": "postgis",
         "PORT": "5432",
     },
     "other": {
-        "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": "postgis2",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "postgres2",
         "USER": "user",
         "PASSWORD": "password",
         "HOST": "postgis",
@@ -41,6 +41,3 @@ PASSWORD_HASHERS = [
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 USE_TZ = False
-
-GEOS_LIBRARY_PATH = "/usr/lib/libgeos_c.so.1"
-GDAL_LIBRARY_PATH = "/usr/lib/libgdal.so.31"

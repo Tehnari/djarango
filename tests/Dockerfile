@@ -31,6 +31,9 @@ COPY --from=builder *.whl $WHEELS
 # Install our requirements and the Django Test requirements
 RUN pip install --no-cache-dir $WHEELS/*.whl
 
+# Install Psycogs for PostGIS test validation
+RUN pip install --no-cache-dir psycopg2-binary
+
 # copy project
 COPY ./ /app
 
