@@ -13,7 +13,7 @@ $ djarango status
 ```
 DATABASES_ARANGO = {
     'default': {
-        'ENGINE'       : 'django.db.backends.arangodb',# Backend implementation
+        'ENGINE'       : 'djarango.db.backends.arangodb',# Backend implementation
         'NAME'         : 'graphdb',                 # DB name
         'HOST'         : 'localhost',               # Single-mode host; 'localhost' is default.
         'PORT'         : '8529',                    # Port 8529 is the default; optional.
@@ -33,7 +33,7 @@ DATABASES_ARANGO = {
 
 # Add Edge Fields to a Django model (example)
 ```
-from django.db.backends.arangodb.fields.edges import EdgeField
+from djarango.db.backends.arangodb.fields.edges import EdgeField
 
 # Djarango treats every Django model as an ArangoDB collection.
 class ModelA(models.Model):

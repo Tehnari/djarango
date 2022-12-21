@@ -11,7 +11,7 @@ from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.models.base import ModelBase
 from djarango.db.backends.arangodb.fields.edges import EdgeField
 
-logger = logging.getLogger('django.db.backends.arangodb')
+logger = logging.getLogger('djarango.db.backends.arangodb')
 
 
 class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):

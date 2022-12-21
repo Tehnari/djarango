@@ -10,7 +10,7 @@ from django.db.backends.dummy.base import complain, ignore
 from django.db.backends.base.introspection import BaseDatabaseIntrospection, TableInfo
 from typing import List
 
-logger = logging.getLogger('django.db.backends.arangodb')
+logger = logging.getLogger('djarango.db.backends.arangodb')
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):

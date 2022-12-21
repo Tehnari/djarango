@@ -23,7 +23,7 @@ from django.db.models.sql.constants import (
     CURSOR, GET_ITERATOR_CHUNK_SIZE, MULTI, NO_RESULTS, ORDER_DIR, SINGLE)
 from django.db.transaction import TransactionManagementError
 
-logger = logging.getLogger('django.db.backends.arangodb')
+logger = logging.getLogger('djarango.db.backends.arangodb')
 
 
 class AQLQueryContext(Enum):

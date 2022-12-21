@@ -25,7 +25,7 @@ from django.db.backends.dummy.base import complain, ignore
 from arango import ArangoClient
 from arango.exceptions import ServerConnectionError
 
-logger = logging.getLogger('django.db.backends.arangodb')
+logger = logging.getLogger('djarango.db.backends.arangodb')
 
 
 # Provide a cursor wrapper and database wrapper for the ArangoDB database.

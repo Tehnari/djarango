@@ -18,7 +18,7 @@ from arango.exceptions import DocumentCountError, ServerConnectionError
 
 debug_client = True
 
-logger = logging.getLogger('django.db.backends.arangodb')
+logger = logging.getLogger('djarango.db.backends.arangodb')
 
 
 #
@@ -117,8 +117,7 @@ class Database(object):
         #          call-function-without-optional-arguments-if-they-are-none
         #
 
-        self.aclient = ArangoClient(adbhosts,
-                                    **{k: v for k, v in adb_kwopts.items() if v is not None})
+        self.aclient = ArangoClient(adbhosts, **{k: v for k, v in adb_kwopts.items() if v is not None})
         if self.aclient is None:
             raise DatabaseError("ArangoClient instantiation failed")
 

@@ -14,7 +14,7 @@ from django.db.backends.base.operations import BaseDatabaseOperations
 
 
 class DatabaseOperations(BaseDatabaseOperations):
-    compiler_module = "django.db.backends.arangodb.compiler"
+    compiler_module = "djarango.db.backends.arangodb.compiler"
 
     def distinct_sql(self, fields: Iterable[str]) -> str:
         """Returns an SQL DISTINCT clause which removes duplicate rows from the

@@ -204,7 +204,7 @@ class EdgeField(RelatedField):
         #       self.__class__.__mro__  # class heirarchy (documented below):
 
         """
-            (<class 'django.db.backends.arangodb.fields.edges.EdgeField'>,
+            (<class 'djarango.db.backends.arangodb.fields.edges.EdgeField'>,
              <class 'django.db.models.fields.related.RelatedField'>,
              <class 'django.db.models.fields.mixins.FieldCacheMixin'>,
              <class 'django.db.models.fields.Field'>,
