@@ -42,7 +42,7 @@ class Database(object):
     conn_params = {}
 
     # List of valid configuration keywords; used for validating settings.
-    client_cfgs = ['ENGINE', 'HOST', 'PORT', 'HOSTS']
+    client_cfgs = ['ENGINE', 'HOST', 'PORT', 'HOSTS', 'CONN_HEALTH_CHECKS']
     client_opts = ['HOST_RESOLVER', 'HTTP_CLIENT', 'SERIALIZER', 'DESERIALIZER']
     conn_cfgs = ['NAME', 'USER', 'PASSWORD']
     conn_opts = ['ATOMIC_REQUESTS', 'AUTOCOMMIT', 'CONN_MAX_AGE', 'OPTIONS',
@@ -57,10 +57,10 @@ class Database(object):
         # Check that parameters in settings are valid.
         errs = {}
         for setting, val in settings.items():
-            if (not ((setting in self.client_cfgs) or
-                     (setting in self.client_opts) or
-                     (setting in self.conn_cfgs) or
-                     (setting in self.conn_opts))):
+            if not any([setting in self.client_cfgs,
+                        setting in self.client_opts,
+                        setting in self.conn_cfgs,
+                        setting in self.conn_opts]):
                 errs[setting] = val
 
         if len(errs) > 0:
