@@ -15,8 +15,6 @@ here  = pathlib.Path(__file__).parent.resolve()
 # copies the python source to /tmp, but not the git repo.  Hence, trying to
 # execute git commands will fail when "make_version" is invoked.  So we have to
 # specify the path to the setup.py file manually.
-#gitpath = os.path.dirname(os.path.abspath(__file__))
-gitpath = '/home/tgraefe/src/django/djarango'
 
 long_description = (here / 'README.md').read_text(encoding='utf-8')
 
@@ -32,19 +30,7 @@ if debug_path_info:
     pypath = sys.path
     for p in pypath:
         print(f"    PATH  : {p}")
-    print(f"\n  GITPATH : {gitpath}\n  CWD     : {curdir}\n")
-
-# This will not work with build module, unless path is appended (above).
-from djarango.scripts.djarango import make_version
-
-# Create a version number based on git tags in the original file directory (not
-# the /tmp directory used by the build module).
-os.chdir(gitpath)
-if debug_path_info:
-    print(f"  HERE (1): {os.getcwd()}\n")
-newver = make_version()
-if debug_path_info:
-    print(f"  VERSION : {newver}\n")
+    print(f"\n  CWD     : {curdir}\n")
 
 # Go back to where 'build' expected us to be.
 os.chdir(curdir)
@@ -91,8 +77,7 @@ class PostInstallCommand(install):
 ###################################
 setup(
     name        = 'djarango',
-#   version     = '0.0.4',
-    version     = newver,
+    version     = '0.0.7',
 
     description = 'ArangoDB Graph Database Backend for Django',
     long_description                = long_description,

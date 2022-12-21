@@ -1,0 +1,29 @@
+version: "3.8"
+
+name: djarango-test
+
+volumes:
+  arangodb_data:
+  arangodb_apps_data:
+
+services:
+  arangodb:
+    image: arangodb/arangodb:3.8.4
+    environment:
+      - ARANGO_ROOT_PASSWORD=openSesame
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+      - arangodb_apps_data:/var/lib/arangodb3-apps
+  postgis:
+    image: postgis/postgis:13-3.1-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+  djarango-test:
+    build:
+      context: ../
+      dockerfile: tests/Dockerfile
+    #entrypoint: sleep infinity
+    depends_on:
+      - arangodb
