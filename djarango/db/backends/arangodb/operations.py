@@ -12,6 +12,7 @@ from typing import Iterable
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
 
+
 class DatabaseOperations(BaseDatabaseOperations):
     compiler_module = "django.db.backends.arangodb.compiler"
 

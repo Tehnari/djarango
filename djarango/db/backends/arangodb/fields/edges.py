@@ -17,6 +17,7 @@ from django.db.migrations.operations.special import RunSQL
 
 from .edge_descriptors import EdgeDescriptor, ReverseEdgeDescriptor
 
+
 # create_graph_collections is adapted from create_many_to_many_intermediary_model
 # in the ManyToManyField class.  In the m2m case, a 'through' table must
 # be created with key pairs (one for each side of an m2m relationship).
@@ -99,10 +100,10 @@ class EdgeRel(ForeignObjectRel):
         if graph_name is not None:
             self.graph_name = graph_name
 
-        self.through        = None
+        self.through = None
         self.through_fields = None
-        self.symmetrical    = False
-        self.db_constraint  = None
+        self.symmetrical = False
+        self.db_constraint = None
 
     def get_related_field(self):
         """
@@ -118,6 +119,7 @@ class EdgeRel(ForeignObjectRel):
                 if rel and rel.model == self.model:
                     break
         return field.foreign_related_fields[0]
+
 
 #
 # Main implementation of links from Django to ArangoDB graph DB.
@@ -161,9 +163,9 @@ class EdgeField(RelatedField):
     #   mymodel.edge_b.source.someGraphQuery()
     #   mymodel.edge_b.target.someGraphQuery()
     #   mymodel.edge_b.graph.someGraphQuery()
-    related_accessor_class         = ReverseEdgeDescriptor
+    related_accessor_class = ReverseEdgeDescriptor
     forward_related_accessor_class = EdgeDescriptor
-    rel_class                      = EdgeRel
+    rel_class = EdgeRel
 
     description = _("ArangoDB Edge field definition")
 
@@ -227,9 +229,9 @@ class EdgeField(RelatedField):
         return [
             *super().check(**kwargs),
             *self._check_unique(**kwargs),
-#           *self._check_relationship_model(**kwargs),
+            #           *self._check_relationship_model(**kwargs),
             *self._check_ignored_options(**kwargs),
-#           *self._check_table_uniqueness(**kwargs),
+            #           *self._check_table_uniqueness(**kwargs),
         ]
 
     def contribute_to_class(self, cls, name, **kwargs):
@@ -263,7 +265,7 @@ class EdgeField(RelatedField):
         super().contribute_to_class(cls, name, **kwargs)
 
         # This needs to be done after contribute_to_class, or it is treated as a kwarg.
-#       self.remote_field.related_name = "edge_def_%s_%s" % (srcmodel, dstmodel)
+        #       self.remote_field.related_name = "edge_def_%s_%s" % (srcmodel, dstmodel)
 
         # Parse the source and destination vertex collections.  These names are
         # not allowed to be user-specified.  These will be used in the add_field
@@ -272,7 +274,7 @@ class EdgeField(RelatedField):
         dst_vc = "%s_%s" % (cls._meta.app_label, dstmodel)
 
         self.from_vertex_collection = src_vc
-        self.to_vertex_collection   = dst_vc
+        self.to_vertex_collection = dst_vc
 
         # Add the descriptor for the edge relation.  It will be used for the accessors.
         # cls example: <class 'testdb.models.ModelA'>
@@ -363,7 +365,7 @@ class EdgeField(RelatedField):
     def _check_unique(self, **kwargs):
         # Don't know what unique means in this case, but it appears it is not being set.
         if self.unique:
-            return [checks.Error('EdgeFields cannot be unique.', obj=self, id='fields.E330',)]
+            return [checks.Error('EdgeFields cannot be unique.', obj=self, id='fields.E330', )]
         return []
 
     def _check_ignored_options(self, **kwargs):
@@ -398,15 +400,15 @@ class EdgeField(RelatedField):
                 "where the field is attached to."
             )
 
-        # Some useful local variables
-        to_model = resolve_relation(from_model, self.remote_field.model)
-        from_model_name = from_model._meta.object_name
-        if isinstance(to_model, str):
-            to_model_name = to_model
-        else:
-            to_model_name = to_model._meta.object_name
-        relationship_model_name = self.remote_field.through._meta.object_name
-        self_referential = from_model == to_model
+        # Some useful local variables   # HACK: removed because they don't seem to do anything?
+        # to_model = resolve_relation(from_model, self.remote_field.model)
+        # from_model_name = from_model._meta.object_name
+        # if isinstance(to_model, str):
+        #    to_model_name = to_model
+        # else:
+        #    to_model_name = to_model._meta.object_name
+        # relationship_model_name = self.remote_field.through._meta.object_name
+        # self_referential = from_model == to_model
 
         # Check symmetrical attribute.  "symmetrical" means different things
         # in m2m and edge fields.  In this code, symmetrical means that the
@@ -438,6 +440,5 @@ class EdgeField(RelatedField):
     def get_prep_value(self, value):
         value = super().get_prep_value(value)
         return self.to_python(value)
-
 
 # end fields.py

@@ -4,6 +4,13 @@
 # Timothy Graefe, Javamata LLC, Nov 2021
 #
 
+from .client import Database, DatabaseClient
+from .features import DatabaseFeatures
+from .operations import DatabaseOperations
+from .creation import DatabaseCreation
+from .introspection import DatabaseIntrospection
+from .schema import DatabaseSchemaEditor
+
 import logging
 import warnings
 
@@ -15,17 +22,10 @@ from django.db.backends.base.validation import BaseDatabaseValidation
 from django.db.backends.dummy.base import complain, ignore
 
 # Arango Python driver (python-arango) imports.
-from arango            import ArangoClient
+from arango import ArangoClient
 from arango.exceptions import ServerConnectionError
 
 logger = logging.getLogger('django.db.backends.arangodb')
-
-from .client        import Database, DatabaseClient
-from .features      import DatabaseFeatures
-from .operations    import DatabaseOperations
-from .creation      import DatabaseCreation
-from .introspection import DatabaseIntrospection
-from .schema        import DatabaseSchemaEditor
 
 
 # Provide a cursor wrapper and database wrapper for the ArangoDB database.
@@ -61,29 +61,29 @@ class AdbCursorWrapper():
         logger.debug("\nAdbCursorWrapper(): cursor_test_sql SQL=\"{sql}\"")
         self._conn.test_sql(sql)
 
-    def execute(self, sql, params = None):
+    def execute(self, sql, params=None):
         logger.debug(f"\nAdbCursorWrapper(): execute SQL=\"{sql}\"")
         self.query_cursor = self._conn.aql.execute(query=sql)
         self.rowcount = self.query_cursor._stats['modified']
         return self
 
-    def execute_many(self, sql, param_list = None):
+    def execute_many(self, sql, param_list=None):
         logger.debug(f"\nAdbCursorWrapper({self.cursor_id}): execute_many SQL=\"{sql}\"")
         self.query_cursor = self._conn.aql.execute_many(query=sql)
         self.rowcount = self.query_cursor._stats['modified']
 
     def batch(self):
-        if not self.query_cursor == None:
+        if self.query_cursor is not None:
             return self.query_cursor.batch()
         return []
 
     def close(self):
-        if not self.query_cursor == None:
+        if self.query_cursor is not None:
             self.query_cursor.close()
             self.query_cursor = None
 
     def empty(self):
-        if not self.query_cursor == None:
+        if self.query_cursor is not None:
             return self.query_cursor.empty()
         return False
 
@@ -102,51 +102,51 @@ class AdbCursorWrapper():
 #
 class DatabaseWrapper(BaseDatabaseWrapper):
     """Represent a database connection."""
-    ops           = DatabaseOperations
-    vendor        = 'arangodb'
-    display_name  = 'ArangoDB'
+    ops = DatabaseOperations
+    vendor = 'arangodb'
+    display_name = 'ArangoDB'
     queries_limit = 9000
 
-    Database            = Database()
+    Database = Database()
 
-    SchemaEditorClass   = DatabaseSchemaEditor
+    SchemaEditorClass = DatabaseSchemaEditor
 
-    client_class        = DatabaseClient
-    creation_class      = DatabaseCreation
-    features_class      = DatabaseFeatures
+    client_class = DatabaseClient
+    creation_class = DatabaseCreation
+    features_class = DatabaseFeatures
     introspection_class = DatabaseIntrospection
-    ops_class           = DatabaseOperations
-    validation_class    = BaseDatabaseValidation
+    ops_class = DatabaseOperations
+    validation_class = BaseDatabaseValidation
 
-    _adbcursor          = None
+    _adbcursor = None
 
     # Mapping of Field objects to their column types.
     data_types = {
-        'AutoField'                 : 'serial',
-        'BigAutoField'              : 'bigserial',
-        'BinaryField'               : 'bytea',
-        'BooleanField'              : 'boolean',
-        'CharField'                 : 'varchar(%(max_length)s)',
-        'DateField'                 : 'date',
-        'DateTimeField'             : 'timestamp with time zone',
-        'DecimalField'              : 'numeric(%(max_digits)s, %(decimal_places)s)',
-        'DurationField'             : 'interval',
-        'FileField'                 : 'varchar(%(max_length)s)',
-        'FilePathField'             : 'varchar(%(max_length)s)',
-        'FloatField'                : 'double precision',
-        'IntegerField'              : 'integer',
-        'BigIntegerField'           : 'bigint',
-        'IPAddressField'            : 'inet',
-        'GenericIPAddressField'     : 'inet',
-        'NullBooleanField'          : 'boolean',
-        'OneToOneField'             : 'integer',
-        'PositiveIntegerField'      : 'integer',
-        'PositiveSmallIntegerField' : 'smallint',
-        'SlugField'                 : 'varchar(%(max_length)s)',
-        'SmallIntegerField'         : 'smallint',
-        'TextField'                 : 'text',
-        'TimeField'                 : 'time',
-        'UUIDField'                 : 'uuid',
+        'AutoField': 'serial',
+        'BigAutoField': 'bigserial',
+        'BinaryField': 'bytea',
+        'BooleanField': 'boolean',
+        'CharField': 'varchar(%(max_length)s)',
+        'DateField': 'date',
+        'DateTimeField': 'timestamp with time zone',
+        'DecimalField': 'numeric(%(max_digits)s, %(decimal_places)s)',
+        'DurationField': 'interval',
+        'FileField': 'varchar(%(max_length)s)',
+        'FilePathField': 'varchar(%(max_length)s)',
+        'FloatField': 'double precision',
+        'IntegerField': 'integer',
+        'BigIntegerField': 'bigint',
+        'IPAddressField': 'inet',
+        'GenericIPAddressField': 'inet',
+        'NullBooleanField': 'boolean',
+        'OneToOneField': 'integer',
+        'PositiveIntegerField': 'integer',
+        'PositiveSmallIntegerField': 'smallint',
+        'SlugField': 'varchar(%(max_length)s)',
+        'SmallIntegerField': 'smallint',
+        'TextField': 'text',
+        'TimeField': 'time',
+        'UUIDField': 'uuid',
     }
 
     # Mapping of Field objects to their SQL suffix such as AUTOINCREMENT.
@@ -185,7 +185,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # Use the Database client singleton imported from .client to get the params.
         return self.Database.get_connection_params(self.settings_dict)
 
-    def get_new_connection(self, conn_params)->ArangoClient:
+    def get_new_connection(self, conn_params) -> ArangoClient:
         # Database.connect returns Arango Python driver DB instance.
         # The DB instance contains a connection to the DB: Database._conn, that
         # will be established during the call to connect().
@@ -199,7 +199,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     def create_cursor(self, name):
         """Creates a cursor. Assumes that a connection is established."""
-        if self._adbcursor == None:
+        if self._adbcursor is None:
             self._adbcursor = AdbCursorWrapper(self.connection)
         return self._adbcursor
 
@@ -207,7 +207,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         raise NotImplementedError("ArangoClient Database Chunked Cursor not yet implemented")
 
     def adbcursor(self):
-        if self._adbcursor == None:
+        if self._adbcursor is None:
             self._adbcursor = AdbCursorWrapper(self.connection)
         return self._adbcursor
 
@@ -216,7 +216,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         Backend-specific implementation to enable or disable autocommit.
         """
         logger.debug("set_autocommit(autocommit={})".format(autocommit))
-        #warnings.warn("_set_autocommit() not set", )
+        # warnings.warn("_set_autocommit() not set", )
 
     # ##### Backend-specific methods for creating connections #####
 
@@ -269,9 +269,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # set_autocommit() is not yet supported in djarango.
 
         logger.debug("set_autocommit(autocommit={}, force={})".
-            format(autocommit, force_begin_transaction_with_broken_autocommit))
-        #warnings.warn("set_autocommit() not set", )
-
+                     format(autocommit, force_begin_transaction_with_broken_autocommit))
+        # warnings.warn("set_autocommit() not set", )
 
     # Utility methods
     def create_collection(self, name):

@@ -65,8 +65,10 @@ But with Edges, all relations are m2m and forward.
 from django.core.exceptions import FieldError
 from django.db import connections, router, transaction
 from django.db.models import Q, signals
+from django.db.models.fields.related_descriptors import create_reverse_many_to_one_manager
 from django.db.models.query import QuerySet
 from django.utils.functional import cached_property
+
 
 class ReverseEdgeDescriptor:
     """
@@ -222,6 +224,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
             manager = getattr(self.model, manager)
             manager_class = create_forward_edge_to_edge_manager(manager.__class__, rel, reverse)
             return manager_class(instance=self.instance)
+
         do_not_call_in_templates = True
 
         def _build_remove_filters(self, removed_vals):
@@ -285,7 +288,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
             qn = connection.ops.quote_name
             queryset = queryset.extra(select={
                 '_prefetch_related_val_%s' % f.attname:
-                '%s.%s' % (qn(join_table), qn(f.column)) for f in fk.local_related_fields})
+                    '%s.%s' % (qn(join_table), qn(f.column)) for f in fk.local_related_fields})
             return (
                 queryset,
                 lambda result: tuple(
@@ -315,11 +318,13 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
                 # fields with intermediate tables must not be symmetrical.
                 if self.symmetrical:
                     self._add_items(self.target_field_name, self.source_field_name, *objs)
+
         add.alters_data = True
 
         def remove(self, *objs):
             self._remove_prefetched_objects()
             self._remove_items(self.source_field_name, self.target_field_name, *objs)
+
         remove.alters_data = True
 
         def clear(self):
@@ -339,6 +344,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
                     instance=self.instance, reverse=self.reverse,
                     model=self.model, pk_set=None, using=db,
                 )
+
         clear.alters_data = True
 
         def set(self, objs, *, clear=False, through_defaults=None):
@@ -367,6 +373,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
 
                     self.remove(*old_ids)
                     self.add(*new_objs, through_defaults=through_defaults)
+
         set.alters_data = True
 
         def create(self, *, through_defaults=None, **kwargs):
@@ -374,6 +381,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
             new_obj = super(EdgeRelatedManager, self.db_manager(db)).create(**kwargs)
             self.add(new_obj, through_defaults=through_defaults)
             return new_obj
+
         create.alters_data = True
 
         def get_or_create(self, *, through_defaults=None, **kwargs):
@@ -384,6 +392,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
             if created:
                 self.add(obj, through_defaults=through_defaults)
             return obj, created
+
         get_or_create.alters_data = True
 
         def update_or_create(self, *, through_defaults=None, **kwargs):
@@ -394,6 +403,7 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
             if created:
                 self.add(obj, through_defaults=through_defaults)
             return obj, created
+
         update_or_create.alters_data = True
 
         def _add_items(self, source_field_name, target_field_name, *objs, through_defaults=None):
@@ -430,12 +440,12 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
                         new_ids.add(obj)
 
                 db = router.db_for_write(self.through, instance=self.instance)
-                vals = (self.through._default_manager.using(db)
-                        .values_list(target_field_name, flat=True)
-                        .filter(**{
-                            source_field_name: self.related_val[0],
-                            '%s__in' % target_field_name: new_ids,
-                        }))
+                vals = self.through._default_manager.using(db).values_list(target_field_name, flat=True).filter(
+                    **{
+                        source_field_name: self.related_val[0],
+                        '%s__in' % target_field_name: new_ids,
+                    }
+                )
                 new_ids.difference_update(vals)
 
                 with transaction.atomic(using=db, savepoint=False):
@@ -494,7 +504,8 @@ def create_forward_edge_to_edge_manager(superclass, rel, reverse):
                 target_model_qs = super().get_queryset()
                 if target_model_qs._has_filters():
                     old_vals = target_model_qs.using(db).filter(**{
-                        '%s__in' % self.target_field.target_field.attname: old_ids})
+                        '%s__in' % self.target_field.target_field.attname: old_ids
+                    })
                 else:
                     old_vals = old_ids
                 filters = self._build_remove_filters(old_vals)

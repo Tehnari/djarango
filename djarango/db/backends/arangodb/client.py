@@ -7,18 +7,19 @@
 import logging
 
 # Django imports
-from django.conf                    import settings
-from django.db.utils                import DatabaseError
+from django.conf import settings
+from django.db.utils import DatabaseError
 from django.db.backends.base.client import BaseDatabaseClient
-from django.core.exceptions         import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured
 
 # Arango Python driver (python-arango) imports.
-from arango                         import ArangoClient
-from arango.exceptions              import DocumentCountError
+from arango import ArangoClient
+from arango.exceptions import DocumentCountError, ServerConnectionError
 
 debug_client = True
 
 logger = logging.getLogger('django.db.backends.arangodb')
+
 
 #
 # Create a Database class to be used as a wrapper to the ArangoDB instance.
@@ -32,20 +33,20 @@ class Database(object):
 
     # aclient gets instantiated to an ArangoClient instance.
     # ArangoClient is the python driver used to invoke the ArangoDB REST API.
-    aclient     = None
+    aclient = None
 
     # adb is an ArangoClient.db() instance.
     # It represents a specific database to which the ArangoClient has connected.
-    adb         = None
+    adb = None
 
     conn_params = {}
 
     # List of valid configuration keywords; used for validating settings.
-    client_cfgs = [ 'ENGINE', 'HOST', 'PORT', 'HOSTS' ]
-    client_opts = [ 'HOST_RESOLVER', 'HTTP_CLIENT', 'SERIALIZER', 'DESERIALIZER' ]
-    conn_cfgs   = [ 'NAME', 'USER', 'PASSWORD' ]
-    conn_opts   = [ 'ATOMIC_REQUESTS', 'AUTOCOMMIT', 'CONN_MAX_AGE', 'OPTIONS',
-                    'TIME_ZONE', 'USE_TZ', 'TEST' ] 
+    client_cfgs = ['ENGINE', 'HOST', 'PORT', 'HOSTS']
+    client_opts = ['HOST_RESOLVER', 'HTTP_CLIENT', 'SERIALIZER', 'DESERIALIZER']
+    conn_cfgs = ['NAME', 'USER', 'PASSWORD']
+    conn_opts = ['ATOMIC_REQUESTS', 'AUTOCOMMIT', 'CONN_MAX_AGE', 'OPTIONS',
+                 'TIME_ZONE', 'USE_TZ', 'TEST']
 
     def get_connection_params(self, settings):
         # Get parameters for Arango client instance and associated db.
@@ -58,7 +59,7 @@ class Database(object):
         for setting, val in settings.items():
             if (not ((setting in self.client_cfgs) or
                      (setting in self.client_opts) or
-                     (setting in self.conn_cfgs)   or
+                     (setting in self.conn_cfgs) or
                      (setting in self.conn_opts))):
                 errs[setting] = val
 
@@ -78,18 +79,18 @@ class Database(object):
 
         # Parse the client configuration first.
         # python-arango supports a single host, or list of hosts (cluster).
-        host  = settings.get('HOST')
+        host = settings.get('HOST')
         hosts = settings.get('HOSTS')
-        port  = settings.get('PORT', '8529')
+        port = settings.get('PORT', '8529')
 
-        if (host == ''):
+        if host == '':
             host = None
 
-        if hosts == None:
-            if host == None:
+        if hosts is None:
+            if host is None:
                 raise ImproperlyConfigured("Neither 'HOST' nor 'HOSTS' configured")
-            hosts = [ host ]
-        elif host != None:
+            hosts = [host]
+        elif host is not None:
             raise ImproperlyConfigured(
                 "Both 'HOST' : '{}' and 'HOSTS' : {} configured".format(host, hosts))
 
@@ -104,7 +105,7 @@ class Database(object):
         # Build a list of keyword options that will be used in client instantiation.
         adb_kwopts = {}
         for cfg in self.client_opts:
-            adb_kwopts[ cfg.lower() ] = settings.get(cfg, None)
+            adb_kwopts[cfg.lower()] = settings.get(cfg, None)
 
         #
         # The '**' operator is used here to avoid multiple if/else statements,
@@ -117,17 +118,17 @@ class Database(object):
         #
 
         self.aclient = ArangoClient(adbhosts,
-                                    **{k: v for k, v in adb_kwopts.items() if v is not None })
-        if self.aclient == None:
+                                    **{k: v for k, v in adb_kwopts.items() if v is not None})
+        if self.aclient is None:
             raise DatabaseError("ArangoClient instantiation failed")
 
         # The client instantiation has succeeded, now get parameters for the db.
         # The db object internally maintains a connection.
         for cfg in self.conn_cfgs:
             if cfg == 'USER':
-                self.conn_params[ 'username' ] = settings.get(cfg, None)
+                self.conn_params['username'] = settings.get(cfg, None)
             else:
-                self.conn_params[ cfg.lower() ] = settings.get(cfg, None)
+                self.conn_params[cfg.lower()] = settings.get(cfg, None)
 
         # Return the connection parameters to the caller.
         return self.conn_params
@@ -153,16 +154,16 @@ class Database(object):
         if debug_client:
             cp['verify'] = True
 
-        self.adb = self.aclient.db(**{k: v for k, v in cp.items() if v is not None })
+        self.adb = self.aclient.db(**{k: v for k, v in cp.items() if v is not None})
 
         # ArangoClient.db() returns a StandardDatabase object.
-        if self.adb == None:
+        if self.adb is None:
             raise DatabaseError("ArangoClient instantiation failed")
 
         return self.adb
 
     def ready(self) -> bool:
-        return (self.aclient and self.adb and (len(self.conn_params) > 0))
+        return self.aclient and self.adb and (len(self.conn_params) > 0)
 
     def verify(self) -> bool:
         if not self.ready():
@@ -205,12 +206,13 @@ class Database(object):
             return None
 
         return coll
-#       collections = self.adb.collections()
-#       idx = [ x for x in range(len(collections)) if collections[x]['name'] == name ]
-#       if len(idx) == 0:
-#           return None
 
-#       return collections[idx[0]]
+    #       collections = self.adb.collections()
+    #       idx = [ x for x in range(len(collections)) if collections[x]['name'] == name ]
+    #       if len(idx) == 0:
+    #           return None
+
+    #       return collections[idx[0]]
 
     def get_collection_docs(self, name):
         # Fetch all records from the specified table.
@@ -249,7 +251,7 @@ class Database(object):
             return
 
         coll = self.adb[collection]
-        return coll.get({ '_key': str(key) })
+        return coll.get({'_key': str(key)})
 
     def has_graph(self, name):
         if not self.ready():
@@ -292,11 +294,12 @@ class Database(object):
 
         try:
             g = self.graph(graph_name)
-        except DoesNotExist:
+        except Exception:  # HACK: Original was DoesNotExist which, ironically, doesn't exist anywhere
             logger.debug("ArangoClient: create_edge_definition({graph_name}) graph not found")
             return None
 
-        return graph.create_edge_definition(edge_name, source, target)
+        return g.create_edge_definition(edge_name, source, target)
+
 
 class DatabaseClient(BaseDatabaseClient):
     # Use arangosh as the DB client shell.
@@ -321,7 +324,7 @@ class DatabaseClient(BaseDatabaseClient):
             port = '8529'
 
         endpoint = r'tcp://{}:{}'.format(host, port)
-        args += ['--server.endpoint', endpoint ]
+        args += ['--server.endpoint', endpoint]
 
         if dbname:
             args += ['--server.database', dbname]
@@ -332,5 +335,3 @@ class DatabaseClient(BaseDatabaseClient):
 
     def runshell(self):
         DatabaseClient.runshell_db(self.adb.get_connection_params())
-
-

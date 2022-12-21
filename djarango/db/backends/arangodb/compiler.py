@@ -10,7 +10,7 @@ from typing import List
 from itertools import chain
 from enum import Enum, auto
 
-from django.core.exceptions import EmptyResultSet
+from django.core.exceptions import EmptyResultSet, FieldError
 from django.db import DatabaseError
 from django.db import IntegrityError
 from django.db.models import NOT_PROVIDED
@@ -20,16 +20,18 @@ from django.db.models.sql import compiler
 from django.db.models.sql.datastructures import Join
 from django.db.models.sql.where import WhereNode, AND
 from django.db.models.sql.constants import (
-        CURSOR, GET_ITERATOR_CHUNK_SIZE, MULTI, NO_RESULTS, ORDER_DIR, SINGLE)
+    CURSOR, GET_ITERATOR_CHUNK_SIZE, MULTI, NO_RESULTS, ORDER_DIR, SINGLE)
 from django.db.transaction import TransactionManagementError
 
 logger = logging.getLogger('django.db.backends.arangodb')
 
+
 class AQLQueryContext(Enum):
-    AQL_QUERY           = auto()
-    AQL_QUERY_INSERT    = auto()
-    AQL_QUERY_DELETE    = auto()
-    AQL_QUERY_UPDATE    = auto()
+    AQL_QUERY = auto()
+    AQL_QUERY_INSERT = auto()
+    AQL_QUERY_DELETE = auto()
+    AQL_QUERY_UPDATE = auto()
+
 
 ################################################################################
 #
@@ -68,7 +70,6 @@ class AQLQueryContext(Enum):
 # Override the Col node class so it returns the column formatted for AQL.
 ################################################################################
 def override_col_as_sql(self, compiler, connection) -> (str, List):
-
     loop_alias = compiler.get_aql_loop_alias(self.alias)
 
     # Use _key element of ArangoDB documents as the Django model id (primary key)
@@ -77,8 +78,10 @@ def override_col_as_sql(self, compiler, connection) -> (str, List):
 
     return "%s.%s" % (loop_alias, self.target.column), []
 
+
 # Override the Col.as_sql() method with code above.
 setattr(Col, 'as_arangodb', override_col_as_sql)
+
 
 ################################################################################
 #
@@ -98,22 +101,24 @@ def override_join_as_sql(self, compiler, connection) -> (str, List):
     """
 
     join_conditions = []
-    params          = []
+    params = []
 
-    qn = compiler.quote_name_unless_alias
-    qn2 = connection.ops.quote_name
+    # HACK: unused locals
+    # qn = compiler.quote_name_unless_alias
+    # qn2 = connection.ops.quote_name
 
     # Add a join condition for each pair of joining columns.
     for lhs_col, rhs_col in self.join_cols:
-        test = qn(lhs_col)
-        test = qn2(rhs_col)
+        # HACK: unused locals
+        # test = qn(lhs_col)
+        # test = qn2(rhs_col)
 
         if lhs_col == 'id':
             lhs_col = '_key'
         if rhs_col == 'id':
             rhs_col = '_key'
-        t1 = (self.parent_alias)
-        t2 = (self.table_alias)
+        t1 = self.parent_alias
+        t2 = self.table_alias
         var1 = compiler.get_aql_loop_alias(t1)
         var2 = compiler.get_aql_loop_alias(t2)
         aql_join = f"FOR {var1} in {t1} FOR {var2} in {t2} FILTER {var1}.{lhs_col} == {var2}.{rhs_col}"
@@ -144,8 +149,10 @@ def override_join_as_sql(self, compiler, connection) -> (str, List):
 
     return ' '.join(join_conditions), params
 
+
 # Override the Join.as_sql() method with function above.
 setattr(Join, 'as_arangodb', override_join_as_sql)
+
 
 ################################################################################
 #
@@ -169,11 +176,11 @@ def override_where_as_sql(self, compiler, connection) -> (str, List):
         on wether it is a query, insert, delete, or update.
     """
     negated_operators = {
-        'exact' : ('==', '!='),
-        'gt'    : ('>',  '<='),
-        'gte'   : ('>=', '<'),
-        'lt'    : ('<',  '>='),
-        'lte'   : ('<=', '>'),
+        'exact': ('==', '!='),
+        'gt': ('>', '<='),
+        'gte': ('>=', '<'),
+        'lt': ('<', '>='),
+        'lte': ('<=', '>'),
     }
 
     result = []
@@ -198,7 +205,7 @@ def override_where_as_sql(self, compiler, connection) -> (str, List):
                 # Parameters need to be single-quoted in the AQL, e.g.:
                 #   ... FILTER item.app_label == 'admin' ...
                 #   ... FILTER item.app_label == 'admin' AND item.model == 'model'
-                if not "'%s'" in sql:
+                if "'%s'" not in sql:
                     sql = sql.replace("%s", "'%s'")
 
                 result.append(sql)
@@ -249,8 +256,10 @@ def override_where_as_sql(self, compiler, connection) -> (str, List):
 
     return sql_string, result_params
 
+
 # Override the WhereNode.as_sql() method with code above.
 setattr(WhereNode, 'as_arangodb', override_where_as_sql)
+
 
 ################################################################################
 #
@@ -262,7 +271,7 @@ def override_isnull_as_sql(self, compiler, connection) -> (str, List):
 
     if '.' in sql:
         alias = sql.split('.')[0]
-        var   = sql.split('.')[1]
+        var = sql.split('.')[1]
     else:
         alias = var = sql
 
@@ -273,8 +282,10 @@ def override_isnull_as_sql(self, compiler, connection) -> (str, List):
 
     return sql_string, params
 
+
 # Override the IsNull.as_sql() method with code above.
 setattr(IsNull, 'as_arangodb', override_isnull_as_sql)
+
 
 ################################################################################
 #
@@ -282,7 +293,6 @@ setattr(IsNull, 'as_arangodb', override_isnull_as_sql)
 #
 ################################################################################
 def override_in_as_sql(self, compiler, connection) -> (str, List):
-
     max_in_list_size = connection.ops.max_in_list_size()
     if self.rhs_is_direct_value() and max_in_list_size and len(self.rhs) > max_in_list_size:
         sql, params = self.split_parameter_list_as_sql(compiler, connection)
@@ -294,25 +304,27 @@ def override_in_as_sql(self, compiler, connection) -> (str, List):
     sql = sql.replace(")", "]")
     return sql, params
 
+
 # Override the In.as_sql() method with code above.
 setattr(In, 'as_arangodb', override_in_as_sql)
 
 
 ################################################################################
 #
-# Override BuiltinLookup node; always enclose conditional expressions within () 
+# Override BuiltinLookup node; always enclose conditional expressions within ()
 #
 ################################################################################
 def override_builtinlookup_as_sql(self, compiler, connection) -> (str, List):
-
     lhs_sql, params = self.process_lhs(compiler, connection)
     rhs_sql, rhs_params = self.process_rhs(compiler, connection)
     params.extend(rhs_params)
     rhs_sql = self.get_rhs_op(connection, rhs_sql)
     return '(%s %s)' % (lhs_sql, rhs_sql), params
 
+
 # Override the In.as_sql() method with code above.
 setattr(BuiltinLookup, 'as_arangodb', override_builtinlookup_as_sql)
+
 
 ################################################################################
 ################################################################################
@@ -328,12 +340,12 @@ class SQLCompiler(compiler.SQLCompiler):
     aql_query_context = AQLQueryContext.AQL_QUERY
     aql_loop_alias = {}
 
-    def get_aql_loop_alias(self, table = None):
+    def get_aql_loop_alias(self, table=None):
         AQL_TA_PREFIX = 'ta'
         if table is None:
             return AQL_TA_PREFIX
 
-        if not table in self.aql_loop_alias:
+        if table not in self.aql_loop_alias:
             self.aql_loop_alias[table] = AQL_TA_PREFIX + str(len(self.aql_loop_alias))
 
         return self.aql_loop_alias[table]
@@ -373,7 +385,7 @@ class SQLCompiler(compiler.SQLCompiler):
             loop_alias = self.get_aql_loop_alias()
             if from_:
                 # If this query is a "join", the from_ clause will include nested loops.
-                result = [ i for i in from_ if 'FOR' in i ]
+                result = [i for i in from_ if 'FOR' in i]
                 if not len(result) > 0:
                     # Not a join, just normal AQL "SELECT"
                     table = from_.pop(0)
@@ -485,7 +497,7 @@ class SQLCompiler(compiler.SQLCompiler):
             if self.query.select_for_update and self.connection.features.has_select_for_update:
                 if self.connection.get_autocommit():
                     raise TransactionManagementError(
-                            "select_for_update cannot be used outside of a transaction.")
+                        "select_for_update cannot be used outside of a transaction.")
 
                 nowait = self.query.select_for_update_nowait
                 skip_locked = self.query.select_for_update_skip_locked
@@ -498,7 +510,7 @@ class SQLCompiler(compiler.SQLCompiler):
                     raise DatabaseError('SKIP LOCKED not supported on this backend.')
 
                 for_update_part = self.connection.ops.for_update_sql(
-                                    nowait=nowait, skip_locked=skip_locked)
+                    nowait=nowait, skip_locked=skip_locked)
 
             if for_update_part and self.connection.features.for_update_after_from:
                 result.append(for_update_part)
@@ -520,8 +532,8 @@ class SQLCompiler(compiler.SQLCompiler):
         result = self.connection.cursor().execute(sql=sql).batch()
         return result
 
-    def execute_sql(self, result_type = MULTI, chunked_fetch = False,
-            chunk_size = GET_ITERATOR_CHUNK_SIZE):
+    def execute_sql(self, result_type=MULTI, chunked_fetch=False,
+                    chunk_size=GET_ITERATOR_CHUNK_SIZE):
         """
         Run the query against the database and returns the result(s). The
         return value is a single data item if result_type is SINGLE, or an
@@ -609,8 +621,8 @@ class SQLCompiler(compiler.SQLCompiler):
             result.append(value)
         return result
 
-    def results_iter(self, results = None, tuple_expected = False,
-                    chunked_fetch = False, chunk_size = GET_ITERATOR_CHUNK_SIZE):
+    def results_iter(self, results=None, tuple_expected=False,
+                     chunked_fetch=False, chunk_size=GET_ITERATOR_CHUNK_SIZE):
         # Results are dictionaries and we can't trust the order of the fields.
         # This part deal with that.
         if results is None:
@@ -643,7 +655,6 @@ class SQLCompiler(compiler.SQLCompiler):
 #
 ################################################################################
 class SQLInsertCompiler(SQLCompiler, compiler.SQLInsertCompiler):
-
     aql_query_context = AQLQueryContext.AQL_QUERY_INSERT
 
     def execute_sql(self, return_id=True):
@@ -664,13 +675,13 @@ class SQLInsertCompiler(SQLCompiler, compiler.SQLInsertCompiler):
         It's naturally bulk.
         """
 
-        opts            = self.query.get_meta()
+        opts = self.query.get_meta()
         collection_name = opts.db_table
 
-        result     = ['FOR', self.get_aql_loop_alias(), 'IN']
+        result = ['FOR', self.get_aql_loop_alias(), 'IN']
         has_fields = bool(self.query.fields)
-        fields     = self.query.fields if has_fields else [opts.pk]
-        documents  = []
+        fields = self.query.fields if has_fields else [opts.pk]
+        documents = []
 
         if has_fields:
             # Prepare the dictionary for insertion.
@@ -682,7 +693,7 @@ class SQLInsertCompiler(SQLCompiler, compiler.SQLInsertCompiler):
                     if f.is_relation and f.related_model is not None:
                         document[f.column] = str(self.prepare_value(f, self.pre_save_val(f, obj)))
                         logger.debug("{}({}) is a Key to another field ({})".
-                            format(f.column, document[f.column], f.description))
+                                     format(f.column, document[f.column], f.description))
                     else:
                         document[f.column] = self.prepare_value(f, self.pre_save_val(f, obj))
                 documents.append(document)
@@ -693,9 +704,9 @@ class SQLInsertCompiler(SQLCompiler, compiler.SQLInsertCompiler):
         # Complete the query statement.
         result.append(json.dumps(documents))
         result.extend(('INSERT',
-                        self.get_aql_loop_alias(),
-                        'IN', collection_name,
-                        'RETURN NEW._key'))
+                       self.get_aql_loop_alias(),
+                       'IN', collection_name,
+                       'RETURN NEW._key'))
 
         # return the result and an empty tuple.
         result = " ".join(result)
@@ -725,7 +736,7 @@ class SQLUpdateCompiler(SQLCompiler):
             FOR ta0 IN testdb_ad                # AQL "SELECT"
                 FILTER ta0._key == '650565'     # AQL "WHERE" clause
                     UPDATE ta0 WITH { title : 'FK test1', description : 'Ad test1', views : 0 }
-                        IN testdb_ad 
+                        IN testdb_ad
         """
 
         self.pre_sql_setup()
@@ -767,7 +778,7 @@ class SQLUpdateCompiler(SQLCompiler):
                 values.append('%s = %s' % (qn(name), placeholder % sql))
                 update_params.extend(params)
             elif val is not None:
-                #values.append('%s = %s' % (qn(name), placeholder))
+                # values.append('%s = %s' % (qn(name), placeholder))
                 if field.get_internal_type() == 'IntegerField':
                     values.append('%s : %s' % (qn(name), val))
                 else:
@@ -814,7 +825,7 @@ class SQLDeleteCompiler(SQLCompiler):
 
         for tables in self.query.table_map.values():
             assert len([t for t in tables if self.query.alias_refcount[t] > 0]) == 1, \
-            "Can only delete from one table at a time."
+                "Can only delete from one table at a time."
 
         table = tables[0]
         loop_alias = self.get_aql_loop_alias(table)

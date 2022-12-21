@@ -6,12 +6,13 @@
 
 import logging
 
-from arango.exceptions import CollectionCreateError
+from arango.exceptions import CollectionCreateError, CollectionDeleteError, GraphCreateError
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.models.base import ModelBase
-from django.db.backends.arangodb.fields.edges import EdgeField
+from djarango.db.backends.arangodb.fields.edges import EdgeField
 
 logger = logging.getLogger('django.db.backends.arangodb')
+
 
 class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
 
@@ -42,12 +43,12 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # However, if this is an edge field, then the following actions
         # must be taken:
         """
-            1) check to see if a graph with the same name exists, andd 
+            1) check to see if a graph with the same name exists, and
                 create the graph if it does not exist.
             2) create an edge definition structure
             3) add the edge definition to the graph
         """
-        logger.debug(f"\nDatabaseSchemaEditor: add_field:")
+        logger.debug("\nDatabaseSchemaEditor: add_field:")
         super().add_field(model, field)
 
         if not isinstance(field, EdgeField):
@@ -65,18 +66,19 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         #
         # The '__fake__' classes hold the DB fields and methods (see the note at
         # bottom of this file).
-        ed = {          "edge_collection" : edge_name,
-                "from_vertex_collections" : [ field.from_vertex_collection, ],
-                  "to_vertex_collections" : [ field.to_vertex_collection, ], }
-        edlist = [ ed, ]
+        ed = {"edge_collection": edge_name,
+              "from_vertex_collections": [field.from_vertex_collection, ],
+              "to_vertex_collections": [field.to_vertex_collection, ],
+              }
+        edlist = [ed, ]
 
         if self.connection.Database.adb.has_graph(graph_name):
             adb_graph = self.connection.Database.adb.graph(graph_name)
             logger.debug(f"Adding edge definition to graph {graph_name}")
             adb_graph.create_edge_definition(
-                edge_collection         = edge_name,
-                from_vertex_collections = [ field.from_vertex_collection, ],
-                to_vertex_collections   = [ field.to_vertex_collection,   ])
+                edge_collection=edge_name,
+                from_vertex_collections=[field.from_vertex_collection, ],
+                to_vertex_collections=[field.to_vertex_collection, ])
         else:
             try:
                 adb_graph = self.connection.Database.adb.create_graph(graph_name, edlist)
