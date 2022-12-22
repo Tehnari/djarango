@@ -5,7 +5,9 @@
 #
 
 import logging
+from typing import ClassVar
 
+from arango.database import StandardDatabase
 # Django imports
 from django.conf import settings
 from django.db.utils import DatabaseError
@@ -14,7 +16,13 @@ from django.core.exceptions import ImproperlyConfigured
 
 # Arango Python driver (python-arango) imports.
 from arango import ArangoClient
-from arango.exceptions import DocumentCountError, ServerConnectionError
+from arango.exceptions import (
+    ArangoClientError,
+    ArangoError,
+    ArangoServerError,
+    DocumentCountError,
+    ServerConnectionError
+)
 
 debug_client = True
 
@@ -23,8 +31,18 @@ logger = logging.getLogger('djarango.db.backends.arangodb')
 
 #
 # Create a Database class to be used as a wrapper to the ArangoDB instance.
-#
+# TODO: This could do with a rewrite to make it more robust.
 class Database(object):
+    DataError: ClassVar = ArangoServerError
+    OperationalError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    IntegrityError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    InternalError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    ProgrammingError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    NotSupportedError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    DatabaseError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    InterfaceError: ClassVar = Exception  # TODO: implement/map this to ArangoDB errors
+    Error: ClassVar = ArangoError
+
     # Make this class a singleton.
     def __new__(cls):
         if not hasattr(cls, 'instance'):
@@ -33,13 +51,14 @@ class Database(object):
 
     # aclient gets instantiated to an ArangoClient instance.
     # ArangoClient is the python driver used to invoke the ArangoDB REST API.
-    aclient = None
+    aclient: ArangoClient = None
 
     # adb is an ArangoClient.db() instance.
     # It represents a specific database to which the ArangoClient has connected.
-    adb = None
+    adb: StandardDatabase = None
 
-    conn_params = {}
+    adb_conn_params = {}
+    """These are the params used to make the adb connection."""
 
     # List of valid configuration keywords; used for validating settings.
     client_cfgs = ['ENGINE', 'HOST', 'PORT', 'HOSTS', 'CONN_HEALTH_CHECKS']
@@ -48,12 +67,8 @@ class Database(object):
     conn_opts = ['ATOMIC_REQUESTS', 'AUTOCOMMIT', 'CONN_MAX_AGE', 'OPTIONS',
                  'TIME_ZONE', 'USE_TZ', 'TEST']
 
+    # Do we need @lru_cache?
     def get_connection_params(self, settings):
-        # Get parameters for Arango client instance and associated db.
-        # Only do this once - i.e., it should be a singleton.
-        if self.ready():
-            return self.conn_params
-
         # Check that parameters in settings are valid.
         errs = {}
         for setting, val in settings.items():
@@ -102,39 +117,33 @@ class Database(object):
         for host in hosts:
             adbhosts.append('http://' + host + ':' + port)
 
-        # Build a list of keyword options that will be used in client instantiation.
+        # Build a list of keyword options that will be used in client instantiation. Throw out None values.
         adb_kwopts = {}
         for cfg in self.client_opts:
-            adb_kwopts[cfg.lower()] = settings.get(cfg, None)
+            setting = settings.get(cfg, None)
+            if setting is not None:
+                adb_kwopts[cfg] = setting
 
-        #
-        # The '**' operator is used here to avoid multiple if/else statements,
-        # each to invoke different function signatures.  We want to avoid
-        # passing "None" to the ArangoClient; the client should use defaults.
-        # Stackoverflow has a good explanation of avoiding passing arguments if
-        # they are "None":
-        #      https://stackoverflow.com/questions/52494128/
-        #          call-function-without-optional-arguments-if-they-are-none
-        #
-
-        self.aclient = ArangoClient(adbhosts, **{k: v for k, v in adb_kwopts.items() if v is not None})
+        # TODO: should this be moved to connect?
+        self.aclient = ArangoClient(adbhosts, **adb_kwopts)
         if self.aclient is None:
-            raise DatabaseError("ArangoClient instantiation failed")
+            raise ArangoClientError("ArangoClient instantiation failed")
 
         # The client instantiation has succeeded, now get parameters for the db.
         # The db object internally maintains a connection.
+        conn_params = {}
         for cfg in self.conn_cfgs:
             if cfg == 'USER':
-                self.conn_params['username'] = settings.get(cfg, None)
+                conn_params['username'] = settings.get(cfg, None)
             else:
-                self.conn_params[cfg.lower()] = settings.get(cfg, None)
+                conn_params[cfg.lower()] = settings.get(cfg, None)
 
         # Return the connection parameters to the caller.
-        return self.conn_params
+        return conn_params
 
-    def connect(self, **cp):
-        # Should be called with the previously parsed and validated conn_params.
-        if self.ready():
+    def connect(self, conn_params):
+        # If we already have a connection made with the same parameters, just return it.
+        if self.ready() and self.adb_conn_params == conn_params:
             return self.adb
 
         # A call to the "db()" method of the client is used to establish the connections.
@@ -151,9 +160,10 @@ class Database(object):
         """
 
         if debug_client:
-            cp['verify'] = True
+            conn_params['verify'] = True
 
-        self.adb = self.aclient.db(**{k: v for k, v in cp.items() if v is not None})
+        self.adb = self.aclient.db(**{k: v for k, v in conn_params.items() if v is not None})
+        self.adb_conn_params = conn_params
 
         # ArangoClient.db() returns a StandardDatabase object.
         if self.adb is None:
@@ -162,7 +172,7 @@ class Database(object):
         return self.adb
 
     def ready(self) -> bool:
-        return self.aclient and self.adb and (len(self.conn_params) > 0)
+        return self.aclient is not None and self.adb is not None
 
     def verify(self) -> bool:
         if not self.ready():

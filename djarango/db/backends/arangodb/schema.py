@@ -19,13 +19,13 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
     def create_model(self, model: ModelBase):
         name = model._meta.db_table
         logger.debug(f"\nDatabaseSchemaEditor: create_model: {name}")
-        super().create_model(model)
 
         try:
             self.connection.Database.adb.create_collection(name, edge=False)
-
         except CollectionCreateError:
             logger.debug(f"Collection {name} already exists.")
+
+        # TODO: M2M and deferred SQL like in the base method
 
     def delete_model(self, model):
         name = model._meta.db_table

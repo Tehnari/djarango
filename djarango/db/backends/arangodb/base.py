@@ -3,6 +3,7 @@
 #
 # Timothy Graefe, Javamata LLC, Nov 2021
 #
+from django.core.exceptions import ImproperlyConfigured
 
 from .client import Database, DatabaseClient
 from .features import DatabaseFeatures
@@ -36,7 +37,7 @@ logger = logging.getLogger('djarango.db.backends.arangodb')
 # It will need to translate from SQL commands to AQL, and then send the
 # requests via the python-arango driver.
 #
-class AdbCursorWrapper():
+class AdbCursorWrapper(object):
     _conn = None
     rowcount = 0
     query_cursor = None
@@ -179,8 +180,12 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     }
 
     def get_connection_params(self):
-        if self.Database.ready():
-            return Database.conn_params
+        # None is OK because it's needed for the _nodb_cursor context manager.
+        if self.settings_dict["NAME"] == "":
+            raise ImproperlyConfigured(
+                "settings.DATABASES is improperly configured. "
+                "Please supply the NAME value."
+            )
 
         # Use the Database client singleton imported from .client to get the params.
         return self.Database.get_connection_params(self.settings_dict)
@@ -190,14 +195,14 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # The DB instance contains a connection to the DB: Database._conn, that
         # will be established during the call to connect().
         # The base class stores the connection in self.connection
-        return self.Database.connect(**conn_params)
+        return self.Database.connect(conn_params)
 
     def init_connection_state(self):
         """Initializes the database connection settings."""
         # Initialization of the DB connection is handled in get_new_connection()
         pass
 
-    def create_cursor(self, name):
+    def create_cursor(self, name=None):
         """Creates a cursor. Assumes that a connection is established."""
         if self._adbcursor is None:
             self._adbcursor = AdbCursorWrapper(self.connection)
@@ -224,7 +229,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         """
         Guarantees that a connection to the database is established.
         """
-        if (self.connection is None) or (not self.Database.ready()):
+        if self.connection is None or not self.Database.ready():
             with self.wrap_database_errors:
                 self.connect()
         else:
@@ -236,18 +241,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 raise ServerConnectionError(f"bad connection: {err}")
             except Exception as err:
                 raise err
-
-    # ##### Generic wrappers for PEP-249 connection methods #####
-
-    def cursor(self):
-        """Create a cursor, opening a connection if necessary."""
-        if not self.Database.ready():
-            self.connect()
-
-        if self._adbcursor is None:
-            self._cursor()
-
-        return self._adbcursor
 
     def _close(self):
         self.Database.close()
