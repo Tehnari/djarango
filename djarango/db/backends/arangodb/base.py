@@ -5,7 +5,8 @@
 #
 from django.core.exceptions import ImproperlyConfigured
 
-from .client import Database, DatabaseClient
+from .client import DatabaseClient
+from .database import Database
 from .features import DatabaseFeatures
 from .operations import DatabaseOperations
 from .creation import DatabaseCreation
