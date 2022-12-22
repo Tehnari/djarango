@@ -13,3 +13,4 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     has_bulk_insert = True
     can_return_ids_from_bulk_insert = False
     supports_timezones = False
+    uses_savepoints = False  # TODO: Can arango do these?
