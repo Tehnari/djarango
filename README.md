@@ -12,6 +12,8 @@ $ djarango status
 ```
 $ djarango link
 
+```
+
 # Configure settings.py (example)
 
 ```
