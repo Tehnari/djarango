@@ -8,6 +8,10 @@ $ # check install status
 $ djarango status
 ```
 
+# Link to django.db.backends
+```
+$ djarango link
+
 # Configure settings.py (example)
 
 ```
